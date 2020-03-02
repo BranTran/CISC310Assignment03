@@ -1,3 +1,7 @@
+#CISC executables
+obj/
+bin/
+
 # Prerequisites
 *.d
 
