@@ -40,7 +40,8 @@ int main(int argc, char **argv)
     int i;
     SchedulerData *shared_data;
     std::vector<Process*> processes;
-
+    bool done = false;
+    
     // read configuration file for scheduling simulation
     SchedulerConfig *config = readConfigFile(argv[1]);
 
@@ -83,12 +84,43 @@ int main(int argc, char **argv)
 
         // start new processes at their appropriate start time
 
-        // determine when an I/O burst finishes and put the process back in the ready queue
+	//@@Check through the NotStarted Processes
+	//@@See if time
+	{
+	  std::lock_guard<std::mutex> lock(shared_data->mutex);
+	  for(i = 0 ; i < processes.size(); i++){
+	  
+	    //**Lauch a process
+	    if(start - currentTime() < processes[i]->getStartTime() && processes[i]->getState() == Process::State::NotStarted){
+	      processes[i]->setState(Process::State::Ready, currentTime());
+	      //Add process to end of the queue
+	      shared_data->ready_queue.push_back(processes[i]);
+	      shared_data->condition.notify_one();	    
+	    }//if not started
+	  }//For every process
+	}//lock shared data
+	
 
+
+	
+        // determine when an I/O burst finishes and put the process back in the ready queue
+	
         // sort the ready queue (if needed - based on scheduling algorithm)
 
         // determine if all processes are in the terminated state
+	{
+	  done = true;
+	  std::lock_guard<std::mutex> lock(shared_data->mutex);	
+	  for(i = 0; i < processes.size() && done == true; i++){
+	    if(processes[i]->getState() != Process::State::Terminated){
+	      done = false;
+	    }
+	  }
+	  std::cout<<"Checking end state: "<<done<<std::endl;
+	  shared_data->all_terminated = done;
+	}
 
+	
         // output process status table
         num_lines = printProcessOutput(processes, shared_data->mutex);
 
@@ -117,22 +149,91 @@ int main(int argc, char **argv)
     processes.clear();
 
     return 0;
-}
+}//main()
 
 void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
 {
-    // Work to be done by each core idependent of the other cores
-    //  - Get process at front of ready queue
+  bool done;
+  uint32_t context_switch;
+  uint32_t time_slice;
+  ScheduleAlgorithm algorithm;
+  uint32_t cpu_burst_time;
+  uint32_t start_cpu_time;
+  Process *runningProcess;
+  std::unique_lock<std::mutex> data_lock(shared_data->mutex);
+  
+  {    //* CRITICAL SECTION: GET INITIAL CONFIGURATION
+    data_lock.lock();
+    context_switch = shared_data->context_switch;
+    time_slice = shared_data->time_slice;
+    algorithm = shared_data->algorithm;
+    done = shared_data->all_terminated;
+    data_lock.unlock();
+  }
+  
+  //@@ Use Mutex to gain access to shared_data
+  while(!done){
+    start_cpu_time = currentTime();
+    {//* CRITICAL SECTION GET FROM READ QUEUE
+      data_lock.lock();
+      // Work to be done by each core idependent of the other cores
+      //  - Get process at front of ready queue
+      while(shared_data->ready_queue.size() == 0){
+	shared_data->condition.wait(data_lock);
+      }
+      runningProcess = shared_data->ready_queue.front();
+      //  - Remove the entry from the queue
+      shared_data->ready_queue.pop_front();
+      
+      //*Update process core and state
+      runningProcess->setCpuCore(core_id);
+      runningProcess->setState(Process::State::Running, currentTime());
+      //      cpu_burst_time = runningProcess->burst_times[runningProcess->current_burst];
+      cpu_burst_time = 500;
+    }
+
+    
     //  - Simulate the processes running until one of the following:
     //     - CPU burst time has elapsed
     //     - RR time slice has elapsed
     //     - Process preempted by higher priority process
+
+    if(algorithm == ScheduleAlgorithm::FCFS){
+      while(currentTime() - start_cpu_time < cpu_burst_time);
+      std::cout << "Finished something"<<std::endl;
+    }    
+    else if(algorithm == ScheduleAlgorithm::RR){
+      while(currentTime() - start_cpu_time < cpu_burst_time);
+    }
+    else if(algorithm == ScheduleAlgorithm::RR){
+      while(currentTime() - start_cpu_time < cpu_burst_time);
+    }
+    else if(algorithm == ScheduleAlgorithm::RR){
+      while(currentTime() - start_cpu_time < cpu_burst_time);
+    }
+
+
     //  - Place the process back in the appropriate queue
     //     - I/O queue if CPU burst finished (and process not finished)
     //     - Terminated if CPU burst finished and no more bursts remain
     //     - Ready queue if time slice elapsed or process was preempted
+    {//* CRITICAL SECTION GET FROM READ QUEUE
+      std::lock_guard<std::mutex> lock(shared_data->mutex);
+                 
+      //*Update process core and state
+      runningProcess->setCpuCore(-1);
+      runningProcess->setState(Process::State::Terminated, currentTime());
+      done = shared_data->all_terminated;
+      //      cpu_burst_time = runningProcess->burst_times[runningProcess->current_burst];
+    }
+
+    
     //  - Wait context switching time
+    usleep(context_switch);
     //  * Repeat until all processes in terminated state
+    
+    
+  }//while ! done
 }
 
 int printProcessOutput(std::vector<Process*>& processes, std::mutex& mutex)
