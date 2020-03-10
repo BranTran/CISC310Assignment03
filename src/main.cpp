@@ -156,7 +156,6 @@ int main(int argc, char **argv)
 
 void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
 {
-  bool done;
   uint32_t context_switch;
   uint32_t time_slice;
   ScheduleAlgorithm algorithm;
@@ -169,11 +168,10 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
   context_switch = shared_data->context_switch;
   time_slice = shared_data->time_slice;
   algorithm = shared_data->algorithm;
-    done = shared_data->all_terminated;
   
   
   //@@ Use Mutex to gain access to shared_data
-  while(!done){
+  while(!shared_data->all_terminated){
     //      printf("Begin Core run\n");
     //while not done
     shared_data->semaphore->wait();
@@ -189,7 +187,7 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
       // printf("Grabbing from queue\n");
       //*Update process core and state
       runningProcess->setCpuCore(core_id);
-      
+      runningProcess->updateProcess(currentTime());
       runningProcess->setState(Process::State::Running, currentTime());
       //cpu_burst_time = runningProcess->burst_times[0];
       cpu_burst_time = 2500;
@@ -224,6 +222,7 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
       //*Update process core and state
       std::lock_guard<std::mutex> lock(shared_data->mutex);
       runningProcess->setCpuCore(-1);
+      runningProcess->updateProcess(currentTime());
       runningProcess->setState(Process::State::Terminated, currentTime());
       //      cpu_burst_time = runningProcess->burst_times[runningProcess->current_burst];
     }

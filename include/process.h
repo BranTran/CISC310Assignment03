@@ -22,6 +22,7 @@ private:
     int32_t cpu_time;         // total time spent running on a CPU core
     int32_t remain_time;      // CPU time remaining until terminated
     uint32_t launch_time;     // actual time in ms (since epoch) that process was 'launched'
+  uint32_t last_updated_time; //Last recorded time by us
     // you are welcome to add other private data fields here (e.g. actual time process was put in 
     // ready queue or i/o queue)
 

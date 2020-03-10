@@ -24,6 +24,7 @@ Process::Process(ProcessDetails details, uint32_t current_time)
     wait_time = 0;
     cpu_time = 0;
     remain_time = 0;
+    last_updated_time = 0;//Added to keep track of time slices
     for (i = 0; i < num_bursts; i+=2)
     {
         remain_time += burst_times[i];
@@ -96,7 +97,9 @@ void Process::setState(State new_state, uint32_t current_time)
     if (state == State::NotStarted && new_state == State::Ready)
     {
         launch_time = current_time;
+	last_updated_time = launch_time;
     }
+
     state = new_state;
 }
 
@@ -109,11 +112,25 @@ void Process::updateProcess(uint32_t current_time)
 {
     // use `current_time` to update turnaround time, wait time, burst times,
     // cpu time, and remaining time
-    turn_time = 0;
-    wait_time = 0;
-    cpu_time = 0;
-    remain_time = 0;
+
+  // Running
+  // I/O
+  // Terminated
+  //
+  //We were in the ready
+  if(state == State::Ready){
+    if(last_updated_time != launch_time){
+      wait_time = wait_time + (current_time - last_updated_time);
+    }
+  }
+  //we are in cpu
+  if(state == State::Running){
+    cpu_time = cpu_time + (current_time - last_updated_time);
+    remain_time = remain_time - (current_time - last_updated_time);
+  }
   
+  turn_time = current_time - launch_time;  
+  last_updated_time = current_time;
   
 }
 
