@@ -1,19 +1,17 @@
 CXX= g++
-CXXFLAGS= -std=c++11 -D_VARIADIC_MAX=10
+CXXFLAGS= -std=c++11
 
 INCLUDE= -I./include
 LIB= -lpthread
 
-SRCDIR= src
 OBJDIR= obj
+SRCDIR= src
 BINDIR= bin
 
-OBJS= $(addprefix $(OBJDIR)/, main.o semaphore.o configreader.o process.o)
-EXEC= $(addprefix $(BINDIR)/, osscheduler)
+OBJS= $(addprefix $(OBJDIR)/, semaphore.o philosopher.o)
+EXEC= $(addprefix $(BINDIR)/, philosopher)
 
-# CREATE DIRECTORIES (IF DON'T ALREADY EXIST)
 mkdirs:= $(shell mkdir -p $(OBJDIR) $(BINDIR))
-
 
 # BUILD EVERYTHING
 all: $(EXEC)
