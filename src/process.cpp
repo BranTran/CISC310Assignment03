@@ -80,6 +80,17 @@ double Process::getRemainingTime() const
     return (double)remain_time / 1000.0;
 }
 
+int8_t Process::getCurrentBurst() const
+{
+    return current_burst;
+}
+
+uint32_t Process::getBurstTime() const
+{
+    return burst_times[current_burst];
+}
+
+
 void Process::setState(State new_state, uint32_t current_time)
 {
     if (state == State::NotStarted && new_state == State::Ready)

@@ -38,6 +38,8 @@ public:
     double getWaitTime() const;
     double getCpuTime() const;
     double getRemainingTime() const;
+    int8_t getCurrentBurst() const;
+    uint32_t getBurstTime() const;
 
     void setState(State new_state, uint32_t current_time);
     void setCpuCore(int8_t core_num);
