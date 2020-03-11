@@ -17,14 +17,14 @@ Process::Process(ProcessDetails details, uint32_t current_time)
     state = (start_time == 0) ? State::Ready : State::NotStarted;
     if (state == State::Ready)
     {
-        launch_time = current_time;
+      launch_time = current_time;
     }
     core = -1;
     turn_time = 0;
     wait_time = 0;
     cpu_time = 0;
     remain_time = 0;
-    last_updated_time = 0;//Added to keep track of time slices
+    last_updated_time = current_time;//Added to keep track of time slices
     for (i = 0; i < num_bursts; i+=2)
     {
         remain_time += burst_times[i];
@@ -44,6 +44,11 @@ uint16_t Process::getPid() const
 uint32_t Process::getStartTime() const 
 {
     return start_time;
+}
+
+uint16_t Process::getNumBursts() const
+{
+    return num_bursts;
 }
 
 uint8_t Process::getPriority() const 
@@ -81,7 +86,7 @@ double Process::getRemainingTime() const
     return (double)remain_time / 1000.0;
 }
 
-int8_t Process::getCurrentBurst() const
+int16_t Process::getCurrentBurst() const
 {
     return current_burst;
 }
@@ -112,24 +117,37 @@ void Process::updateProcess(uint32_t current_time)
 {
     // use `current_time` to update turnaround time, wait time, burst times,
     // cpu time, and remaining time
-
-  // Running
-  // I/O
-  // Terminated
-  //
-  //We were in the ready
+  //Alwats update the turn_time
+  uint32_t time_spent = current_time - last_updated_time;
+  
+  turn_time = current_time - launch_time;
+  //We were in the ready moving to cpu
   if(state == State::Ready){
-    if(last_updated_time != launch_time){
-      wait_time = wait_time + (current_time - last_updated_time);
+    if(time_spent > 0){
+      wait_time = wait_time + time_spent;
+
+    }
+    //    if(wait_time < 0){
+    //  std::cout<<"Wait time: "<<wait_time<<" time_spent: "<<time_spent<<" last_updated_time: "<<last_updated_time<<" current_time: "<<current_time<<std::endl;
+    //}
+  }
+  //we are moving off the CPU
+  if(state == State::Running){
+    cpu_time = cpu_time + time_spent;
+    remain_time = remain_time - time_spent;
+    if(time_spent >= getBurstTime()){
+      current_burst++;
+    }
+    else{
+      updateBurstTime(current_burst,getBurstTime() - time_spent);
     }
   }
-  //we are in cpu
-  if(state == State::Running){
-    cpu_time = cpu_time + (current_time - last_updated_time);
-    remain_time = remain_time - (current_time - last_updated_time);
+  //If we are moving off the IO queue
+  if(state == State::IO){
+    remain_time = remain_time - time_spent;
+    current_burst++;
   }
-  
-  turn_time = current_time - launch_time;  
+  //Keep track of the last time we updated
   last_updated_time = current_time;
   
 }
