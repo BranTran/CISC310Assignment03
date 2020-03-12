@@ -119,8 +119,9 @@ void Process::updateProcess(uint32_t current_time)
     // cpu time, and remaining time
   //Alwats update the turn_time
   uint32_t time_spent = current_time - last_updated_time;
-  
-  turn_time = current_time - launch_time;
+  if(state != State::Terminated){
+    turn_time = current_time - launch_time;
+  }
   //We were in the ready moving to cpu
   if(state == State::Ready){
     if(time_spent > 0){
@@ -144,8 +145,12 @@ void Process::updateProcess(uint32_t current_time)
   }
   //If we are moving off the IO queue
   if(state == State::IO){
-    remain_time = remain_time - time_spent;
-    current_burst++;
+    if(time_spent >= getBurstTime()){
+      current_burst++;
+    }
+    else{
+      updateBurstTime(current_burst,getBurstTime() - time_spent);
+    }
   }
   //Keep track of the last time we updated
   last_updated_time = current_time;

@@ -112,8 +112,10 @@ int main(int argc, char **argv)
 	  
 	  std::lock_guard<std::mutex> lock(shared_data->mutex);
 	  for(i = 0 ; i < processes.size(); i++){
-	    /*Lauch a process
-	    if((currentTime() - start) >= processes[i]->getStartTime() && processes[i]->getState() == Process::State::IO){
+	   //*Lauch a process
+	    uint16_t burst_counter = processes[i]->getCurrentBurst();
+	    processes[i]->updateProcess(currentTime());
+	    if(burst_counter != processes[i]->getCurrentBurst() && processes[i]->getState() == Process::State::IO){
 	      processes[i]->setState(Process::State::Ready, currentTime());
 	      //Add process to end of the queue
 	      shared_data->ready_queue.push_back(processes[i]);
@@ -246,12 +248,13 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
 	runningProcess->setCpuCore(-1);
 	runningProcess->updateProcess(currentTime());
 	//Terminate
-	if(burst_counter == runningProcess->getNumBursts()){
+	if(runningProcess->getCurrentBurst() >= runningProcess->getNumBursts()){
 	  runningProcess->setState(Process::State::Terminated, currentTime());
 	}
-	//Finished SPU Burst
-	/*else if(burst_counter != runningProcess->getCurrentBurst()){
-	   runningProcess->setState(Process::State::IO, currentTime());
+	//Finished CPU Burst
+	//*
+	else if(burst_counter != runningProcess->getCurrentBurst()){
+	  runningProcess->setState(Process::State::IO, currentTime());
 	}//*/
 	//If preempted
 	else{
