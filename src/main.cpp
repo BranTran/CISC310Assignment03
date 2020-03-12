@@ -85,7 +85,6 @@ int main(int argc, char **argv)
         clearOutput(num_lines);
 
         // start new processes at their appropriate start time
-
 	//@@Check through the NotStarted Processes
 	//@@See if time
 	{
@@ -106,7 +105,7 @@ int main(int argc, char **argv)
 	
 	
         // determine when an I/O burst finishes and put the process back in the ready queue
-		//@@Check through the NotStarted Processes
+	//@@Check through the NotStarted Processes
 	//@@See if time
 	{
 	  
@@ -125,6 +124,13 @@ int main(int argc, char **argv)
 	}//lock shared data
 	
         // sort the ready queue (if needed - based on scheduling algorithm)
+	//@@ Only do it for SJF and PP
+	if(shared_data->algorithm == ScheduleAlgorithm::SJF){
+	  //SORT USING THE COMPARATOR
+	}
+	else if(shared_data->algorithm == ScheduleAlgorithm::PP){
+	  //SORT USING THE COMPARATOR
+	}
 	
         // determine if all processes are in the terminated state
 	{
@@ -225,10 +231,10 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
       
       if(algorithm == ScheduleAlgorithm::FCFS){
 	while(currentTime() - start_cpu_time < cpu_burst_time);
-	//std::cout << "Finished something"<<std::endl;
       }    
       else if(algorithm == ScheduleAlgorithm::RR){
-	while(currentTime() - start_cpu_time < cpu_burst_time);
+	//If finishes or because of preemption
+	while(currentTime() - start_cpu_time < cpu_burst_time && currentTime() - start_cpu_time < time_slice);
       }
       else if(algorithm == ScheduleAlgorithm::SJF){
 	while(currentTime() - start_cpu_time < cpu_burst_time);
