@@ -9,13 +9,11 @@
 #include <unistd.h>
 #include "configreader.h"
 #include "process.h"
-#include "semaphore.h"
 
 // Shared data for all cores
 typedef struct SchedulerData {
     std::mutex mutex;
     std::condition_variable condition;
-    Semaphore *semaphore;
     ScheduleAlgorithm algorithm;
     uint32_t context_switch;
     uint32_t time_slice;
@@ -54,7 +52,6 @@ int main(int argc, char **argv)
     shared_data->context_switch = config->context_switch;
     shared_data->time_slice = config->time_slice;
     shared_data->all_terminated = false;
-    shared_data->semaphore = new Semaphore(0);
     // create processes
     uint32_t start = currentTime();
     for (i = 0; i < config->num_processes; i++)
@@ -64,7 +61,6 @@ int main(int argc, char **argv)
         if (p->getState() == Process::State::Ready)
         {
             shared_data->ready_queue.push_back(p);
-	    shared_data->semaphore->signal();
         }
     }
 
@@ -96,7 +92,6 @@ int main(int argc, char **argv)
 	      processes[i]->setState(Process::State::Ready, currentTime());
 	      //Add process to end of the queue
 	      shared_data->ready_queue.push_back(processes[i]);
-	      shared_data->semaphore->signal();
 	    }//if not started
 	  }//For every process
 	}//lock shared data
@@ -118,7 +113,6 @@ int main(int argc, char **argv)
 	      processes[i]->setState(Process::State::Ready, currentTime());
 	      //Add process to end of the queue
 	      shared_data->ready_queue.push_back(processes[i]);
-	      shared_data->semaphore->signal();
 	    }//if IO//*/
 	  }//For every process
 	}//lock shared data
@@ -152,11 +146,6 @@ int main(int argc, char **argv)
 
         // sleep 1/60th of a second
         usleep(16667);
-    }
-
-    //Wait up the cores once they finished
-    for(i = 0; i < num_cores; i++){
-      shared_data->semaphore->signal();
     }
 
     std::cout<<"All done in main thread"<<std::endl;
@@ -202,26 +191,28 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
   while(!shared_data->all_terminated){
     //      printf("Begin Core run\n");
     //while not done
-    shared_data->semaphore->wait();
-    if(!shared_data->all_terminated){
+    runningProcess = NULL;
+    while(runningProcess == NULL && !shared_data->all_terminated){
       {//* CRITICAL SECTION GET FROM READ QUEUE
 	
 	// Work to be done by each core idependent of the other cores
 	//  - Get process at front of ready queue
 	std::lock_guard<std::mutex> lock(shared_data->mutex);
-	if(shared_data->ready_queue.size() == 0);
-	runningProcess = shared_data->ready_queue.front();
-	//  - Remove the entry from the queue
-	shared_data->ready_queue.pop_front();
-	// printf("Grabbing from queue\n");
-	//*Update process core and state
-	runningProcess->setCpuCore(core_id);
-	runningProcess->updateProcess(currentTime());
-	runningProcess->setState(Process::State::Running, currentTime());
-	cpu_burst_time = runningProcess->getBurstTime();
-	burst_counter = runningProcess->getCurrentBurst();
+	if(shared_data->ready_queue.size() > 0){
+	  runningProcess = shared_data->ready_queue.front();
+	  //  - Remove the entry from the queue
+	  shared_data->ready_queue.pop_front();
+	  // printf("Grabbing from queue\n");
+	  //*Update process core and state
+	  runningProcess->setCpuCore(core_id);
+	  runningProcess->updateProcess(currentTime());
+	  runningProcess->setState(Process::State::Running, currentTime());
+	  cpu_burst_time = runningProcess->getBurstTime();
+	  burst_counter = runningProcess->getCurrentBurst();
+	}
       }
-      
+    }
+    if(!shared_data->all_terminated){
       start_cpu_time = currentTime();
       
       //  - Simulate the processes running until one of the following:
@@ -243,7 +234,7 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
 	while(currentTime() - start_cpu_time < cpu_burst_time);
       }
       
-
+      
       //  - Place the process back in the appropriate queue
       //     - I/O queue if CPU burst finished (and process not finished)
       //     - Terminated if CPU burst finished and no more bursts remain
@@ -264,17 +255,16 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
 	}//*/
 	//If preempted
 	else{
-	   runningProcess->setState(Process::State::Ready, currentTime());
-	   shared_data->ready_queue.push_back(runningProcess);
-	   shared_data->semaphore->signal();
+	  runningProcess->setState(Process::State::Ready, currentTime());
+	  shared_data->ready_queue.push_back(runningProcess);
 	}
       }
-      
+    
       //      printf("done deal\n");    
       //  - Wait context switching time
       usleep(context_switch);
       //  * Repeat until all processes in terminated state
-    }//If not terminated (checked after wait)
+    }
   }//while ! done//*/
 }
 
