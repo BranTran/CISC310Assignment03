@@ -86,7 +86,11 @@ int main(int argc, char **argv)
 	  done = true;
 	  
 	  for(i = 0 ; i < processes.size(); i++){
-	    
+	    //Check the burst counter and update processes
+	    uint16_t burst_counter = processes[i]->getCurrentBurst();
+	    processes[i]->updateProcess(currentTime());
+
+	    //Do things if the process isn't terminated
 	    if(processes[i]->getState() != Process::State::Terminated){
 	      // start new processes at their appropriate start time
 	      //@@Check through the NotStarted Processes
@@ -99,8 +103,6 @@ int main(int argc, char **argv)
 	      // determine when an I/O burst finishes and put the process back in the ready queue
 	      //@@Check through the NotStarted Processes
 	      //*Lauch a process
-	      uint16_t burst_counter = processes[i]->getCurrentBurst();
-	      processes[i]->updateProcess(currentTime());
 	      if(burst_counter != processes[i]->getCurrentBurst() && processes[i]->getState() == Process::State::IO){
 		processes[i]->setState(Process::State::Ready, currentTime());
 		//Add process to end of the queue
@@ -109,6 +111,7 @@ int main(int argc, char **argv)
 	      
 	      // determine if all processes are in the terminated state
 	      done = false;//There was a process that is not terminated
+	      
 	    }//if not terminated
 	  }//for each process
 	  shared_data->all_terminated = done;
