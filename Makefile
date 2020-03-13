@@ -8,7 +8,7 @@ SRCDIR= src
 OBJDIR= obj
 BINDIR= bin
 
-OBJS= $(addprefix $(OBJDIR)/, main.o semaphore.o configreader.o process.o)
+OBJS= $(addprefix $(OBJDIR)/, main.o configreader.o process.o)
 EXEC= $(addprefix $(BINDIR)/, osscheduler)
 
 # CREATE DIRECTORIES (IF DON'T ALREADY EXIST)
