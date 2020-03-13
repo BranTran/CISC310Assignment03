@@ -80,73 +80,57 @@ int main(int argc, char **argv)
         // clear output from previous iteration
         clearOutput(num_lines);
 
-        // start new processes at their appropriate start time
-	//@@Check through the NotStarted Processes
-	//@@See if time
+
 	{
-	  
 	  std::lock_guard<std::mutex> lock(shared_data->mutex);
-	  for(i = 0 ; i < processes.size(); i++){
-	    //**Lauch a process
-	    if((currentTime() - start) >= processes[i]->getStartTime() && processes[i]->getState() == Process::State::NotStarted){
-	      processes[i]->setState(Process::State::Ready, currentTime());
-	      //Add process to end of the queue
-	      shared_data->ready_queue.push_back(processes[i]);
-	    }//if not started
-	  }//For every process
-	}//lock shared data
-	
-	
-	
-	
-        // determine when an I/O burst finishes and put the process back in the ready queue
-	//@@Check through the NotStarted Processes
-	//@@See if time
-	{
-	  
-	  std::lock_guard<std::mutex> lock(shared_data->mutex);
-	  for(i = 0 ; i < processes.size(); i++){
-	   //*Lauch a process
-	    uint16_t burst_counter = processes[i]->getCurrentBurst();
-	    processes[i]->updateProcess(currentTime());
-	    if(burst_counter != processes[i]->getCurrentBurst() && processes[i]->getState() == Process::State::IO){
-	      processes[i]->setState(Process::State::Ready, currentTime());
-	      //Add process to end of the queue
-	      shared_data->ready_queue.push_back(processes[i]);
-	    }//if IO//*/
-	  }//For every process
-	}//lock shared data
-	
-        // sort the ready queue (if needed - based on scheduling algorithm)
-	//@@ Only do it for SJF and PP
-	if(shared_data->algorithm == ScheduleAlgorithm::SJF){
-	  //SORT USING THE COMPARATOR
-	}
-	else if(shared_data->algorithm == ScheduleAlgorithm::PP){
-	  //SORT USING THE COMPARATOR
-	}
-	
-        // determine if all processes are in the terminated state
-	{
 	  done = true;
-	  int count = 0;
-	  for(i = 0; i < processes.size() && done == true; i++){
+	  
+	  for(i = 0 ; i < processes.size(); i++){
+	    
 	    if(processes[i]->getState() != Process::State::Terminated){
-	      done = false;
-	    }
-	  }
+	      // start new processes at their appropriate start time
+	      //@@Check through the NotStarted Processes
+	      //@@See if time	      
+	      if((currentTime() - start) >= processes[i]->getStartTime() && processes[i]->getState() == Process::State::NotStarted){
+		processes[i]->setState(Process::State::Ready, currentTime());
+		shared_data->ready_queue.push_back(processes[i]);
+	      }//if not started
+	      
+	      // determine when an I/O burst finishes and put the process back in the ready queue
+	      //@@Check through the NotStarted Processes
+	      //*Lauch a process
+	      uint16_t burst_counter = processes[i]->getCurrentBurst();
+	      processes[i]->updateProcess(currentTime());
+	      if(burst_counter != processes[i]->getCurrentBurst() && processes[i]->getState() == Process::State::IO){
+		processes[i]->setState(Process::State::Ready, currentTime());
+		//Add process to end of the queue
+		shared_data->ready_queue.push_back(processes[i]);
+	      }//if in IO
+	      
+	      // determine if all processes are in the terminated state
+	      done = false;//There was a process that is not terminated
+	    }//if not terminated
+	  }//for each process
 	  shared_data->all_terminated = done;
-	  //	  std::cout<<"Checking end state: "<<done<<std::endl;
-	}//*/
+	  
+	  // sort the ready queue (if needed - based on scheduling algorithm)
+	  //@@ Only do it for SJF and PP	  
+	  if(shared_data->algorithm == ScheduleAlgorithm::SJF){
+	    shared_data->ready_queue.sort(SjfComparator());
+	  }
+	  else if(shared_data->algorithm == ScheduleAlgorithm::PP){
+	    shared_data->ready_queue.sort(PpComparator());
+	  }
+	}//lock shared data
 
 	
-        // output process status table
 	
+        // output process status table
         num_lines = printProcessOutput(processes, shared_data->mutex);
 
         // sleep 1/60th of a second
         usleep(16667);
-    }
+    }//while something still runs
 
     std::cout<<"All done in main thread"<<std::endl;
     // wait for threads to finish
@@ -181,28 +165,24 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
   Process *runningProcess;
   uint8_t burst_counter;
   
-  //* CRITICAL SECTION: GET INITIAL CONFIGURATION
   context_switch = shared_data->context_switch;
   time_slice = shared_data->time_slice;
   algorithm = shared_data->algorithm;
-  
-  
-  //@@ Use Mutex to gain access to shared_data
+
+  //while not done
   while(!shared_data->all_terminated){
-    //      printf("Begin Core run\n");
-    //while not done
+    
     runningProcess = NULL;
     while(runningProcess == NULL && !shared_data->all_terminated){
       {//* CRITICAL SECTION GET FROM READ QUEUE
 	
-	// Work to be done by each core idependent of the other cores
-	//  - Get process at front of ready queue
 	std::lock_guard<std::mutex> lock(shared_data->mutex);
 	if(shared_data->ready_queue.size() > 0){
+	  // Work to be done by each core idependent of the other cores
+	  //  - Get process at front of ready queue
 	  runningProcess = shared_data->ready_queue.front();
 	  //  - Remove the entry from the queue
 	  shared_data->ready_queue.pop_front();
-	  // printf("Grabbing from queue\n");
 	  //*Update process core and state
 	  runningProcess->setCpuCore(core_id);
 	  runningProcess->updateProcess(currentTime());
@@ -218,8 +198,7 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
       //  - Simulate the processes running until one of the following:
       //     - CPU burst time has elapsed
       //     - RR time slice has elapsed
-      //     - Process preempted by higher priority process
-      
+      //     - Process preempted by higher priority proces
       if(algorithm == ScheduleAlgorithm::FCFS){
 	while(currentTime() - start_cpu_time < cpu_burst_time);
       }    
@@ -231,7 +210,11 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
 	while(currentTime() - start_cpu_time < cpu_burst_time);
       }
       else if(algorithm == ScheduleAlgorithm::PP){
-	while(currentTime() - start_cpu_time < cpu_burst_time);
+	{
+	  std::lock_guard<std::mutex> lock(shared_data->mutex);
+	  //Check what the front process is on the thing
+	  while(currentTime() - start_cpu_time < cpu_burst_time); //&& my priority is higher than the other people's priority
+	}
       }
       
       
@@ -260,7 +243,6 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
 	}
       }
     
-      //      printf("done deal\n");    
       //  - Wait context switching time
       usleep(context_switch);
       //  * Repeat until all processes in terminated state
