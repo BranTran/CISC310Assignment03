@@ -107,6 +107,7 @@ int main(int argc, char **argv)
 		// find all processes on cores
 		// check if any are lower than this process's priority
 		// if any are then replace lowest priority process with this process
+		/*
 		Process *lowest_priority_process = NULL;
 		for(int w = 0; w < processes.size(); w++){
 		    // If running and lower priority and lowest priority
@@ -120,7 +121,7 @@ int main(int argc, char **argv)
 		    // replace lower priority process with new process on CPU
             lowest_priority_process->setState(Process::State::Preempted, currentTime());
 		}
-
+		*/
 
 	      }//if not started
 	      
@@ -133,6 +134,7 @@ int main(int argc, char **argv)
 		//Add process to end of the queue
 		shared_data->ready_queue.push_back(processes[i]); // was I/O, now ready
 		// For Preemptive Priority
+		/*
 		Process *lowest_priority_process = NULL;
 		for(int w = 0; w < processes.size(); w++){
 		    // If running and lower priority and lowest priority
@@ -146,6 +148,7 @@ int main(int argc, char **argv)
 		    // replace lower priority process with new process on CPU
             lowest_priority_process->setState(Process::State::Preempted, currentTime());
 		}
+		*/
 		
 	      }//if in IO
 	      
@@ -175,7 +178,7 @@ int main(int argc, char **argv)
         usleep(16667);
     }//while something still runs
 
-    std::cout<<"All done in main thread"<<std::endl;
+    //std::cout<<"All done in main thread"<<std::endl;
     // wait for threads to finish
     for (i = 0; i < num_cores; i++)
     {
@@ -262,9 +265,19 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
 	//{
 	  //std::lock_guard<std::mutex> lock(shared_data->mutex);
 	  //Check what the front process is on the thing
-	  // TODO
-	  while(currentTime() - start_cpu_time < cpu_burst_time && runningProcess->getState() != Process::State::Preempted); //&& my priority is higher than the other people's priority
-	//}
+	  // Stall while burst and while highest priority in queue
+	  //&& my priority is higher than the other people's priority
+	  while(currentTime() - start_cpu_time < cpu_burst_time){
+	  	
+		//if(shared_data->ready_queue.front() != NULL && runningProcess->getPriority() > shared_data->ready_queue.front()->getPriority()){
+		//	break;
+		//}
+		
+	  //}
+	  // When this is cut short because there is a higher priority process on the ready queue
+	  // this process will go back on ready queue then that higher priority process will be pulled from front of sorted ready queue
+	  
+	}
       }
       
       
@@ -346,7 +359,7 @@ void clearOutput(int num_lines)
 
 void printSchedulerStatistics()
 {
-    printf("Scheduler Statistics\n");
+    printf("\nScheduler Statistics:\n");
     printf("CPU utilization \n");
     printf("Throughput:\n");
     printf("\tAverage for first 50%% of processes finished\n");
