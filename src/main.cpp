@@ -131,9 +131,9 @@ int main(int argc, char **argv)
 	
 	
         // output process status table
-        num_lines = printProcessOutput(processes, shared_data->mutex);
+	num_lines = printProcessOutput(processes, shared_data->mutex);
 
-        // sleep 1/60th of a second
+        //sleep 1/60th of a second
         usleep(16667);
     }//while something still runs
 
@@ -229,6 +229,7 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
 	  while(currentTime() - start_cpu_time < cpu_burst_time){
 	  	std::lock_guard<std::mutex> lock(shared_data->mutex);
 		if(shared_data->ready_queue.front() != NULL && runningProcess->getPriority() > shared_data->ready_queue.front()->getPriority()){
+		  //std::cout<<"Preemting Priority: "<<unsigned(runningProcess->getPriority())<<"for higher priority: "<<unsigned(shared_data->ready_queue.front()->getPriority())<<std::endl; 
 			break;
 		}
 		
