@@ -24,6 +24,7 @@ typedef struct SchedulerData {
 void coreRunProcesses(uint8_t core_id, SchedulerData *data);
 int printProcessOutput(std::vector<Process*>& processes, std::mutex& mutex);
 void clearOutput(int num_lines);
+void printSchedulerStatistics();
 uint32_t currentTime();
 std::string processStateToString(Process::State state);
 
@@ -189,6 +190,7 @@ int main(int argc, char **argv)
     //     - Overall average
     //  - Average turnaround time
     //  - Average waiting time
+    printSchedulerStatistics();
 
 
     // Clean up before quitting program
@@ -340,6 +342,18 @@ void clearOutput(int num_lines)
     }
     rewind(stdout);
     fflush(stdout);
+}
+
+void printSchedulerStatistics()
+{
+    printf("Scheduler Statistics\n");
+    printf("CPU utilization \n");
+    printf("Throughput:\n");
+    printf("\tAverage for first 50%% of processes finished\n");
+    printf("\tAverage for second 50%% of processes finished\n");
+    printf("\tOverall average\n");
+    printf("Average turnaround time\n");
+    printf("Average waiting time\n");
 }
 
 uint32_t currentTime()
