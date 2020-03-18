@@ -99,56 +99,15 @@ int main(int argc, char **argv)
 	      if((currentTime() - start) >= processes[i]->getStartTime() && processes[i]->getState() == Process::State::NotStarted){
 		processes[i]->setState(Process::State::Ready, currentTime());
 		shared_data->ready_queue.push_back(processes[i]); // Had not started, now ready
-
-
-		// TODO Preemptive Priority
-		// If this newly created process has a higher priority than a "process" currently running on a core, then
-		// the lowest priority "process" that is running should be preempted
-		// find all processes on cores
-		// check if any are lower than this process's priority
-		// if any are then replace lowest priority process with this process
-		/*
-		Process *lowest_priority_process = NULL;
-		for(int w = 0; w < processes.size(); w++){
-		    // If running and lower priority and lowest priority
-            if(processes[w]->getState() == Process::State::Running && processes[w]->getPriority() < processes[i]->getPriority()){
-                if(lowest_priority_process == NULL || processes[w]->getPriority() < lowest_priority_process->getPriority()){
-                    lowest_priority_process = processes[w];
-                }
-            }
-		}
-		if(lowest_priority_process != NULL){
-		    // replace lower priority process with new process on CPU
-            lowest_priority_process->setState(Process::State::Preempted, currentTime());
-		}
-		*/
-
 	      }//if not started
 	      
 	      // determine when an I/O burst finishes and put the process back in the ready queue
 	      //@@Check through the NotStarted Processes
 	      //*Lauch a process
-	      // TODO this if block should probably be joined with one above
 	      if(burst_counter != processes[i]->getCurrentBurst() && processes[i]->getState() == Process::State::IO){
 		processes[i]->setState(Process::State::Ready, currentTime());
 		//Add process to end of the queue
 		shared_data->ready_queue.push_back(processes[i]); // was I/O, now ready
-		// For Preemptive Priority
-		/*
-		Process *lowest_priority_process = NULL;
-		for(int w = 0; w < processes.size(); w++){
-		    // If running and lower priority and lowest priority
-            if(processes[w]->getState() == Process::State::Running && processes[w]->getPriority() < processes[i]->getPriority()){
-                if(lowest_priority_process == NULL || processes[w]->getPriority() < lowest_priority_process->getPriority()){
-                    lowest_priority_process = processes[w];
-                }
-            }
-		}
-		if(lowest_priority_process != NULL){
-		    // replace lower priority process with new process on CPU
-            lowest_priority_process->setState(Process::State::Preempted, currentTime());
-		}
-		*/
 		
 	      }//if in IO
 	      
@@ -268,10 +227,10 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
 	  // Stall while burst and while highest priority in queue
 	  //&& my priority is higher than the other people's priority
 	  while(currentTime() - start_cpu_time < cpu_burst_time){
-	  	
-		//if(shared_data->ready_queue.front() != NULL && runningProcess->getPriority() > shared_data->ready_queue.front()->getPriority()){
-		//	break;
-		//}
+	  	std::lock_guard<std::mutex> lock(shared_data->mutex);
+		if(shared_data->ready_queue.front() != NULL && runningProcess->getPriority() > shared_data->ready_queue.front()->getPriority()){
+			break;
+		}
 		
 	  //}
 	  // When this is cut short because there is a higher priority process on the ready queue
