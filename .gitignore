@@ -2,6 +2,9 @@
 obj/
 bin/
 
+# Other
+.idea/
+
 # Prerequisites
 *.d
 
