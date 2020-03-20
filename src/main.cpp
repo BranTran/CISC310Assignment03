@@ -19,12 +19,15 @@ typedef struct SchedulerData {
     uint32_t time_slice;
     std::list<Process*> ready_queue;
     bool all_terminated;
+    int finished_processes;
+    int num_processes;
+    uint32_t half_time;
 } SchedulerData;
 
 void coreRunProcesses(uint8_t core_id, SchedulerData *data);
 int printProcessOutput(std::vector<Process*>& processes, std::mutex& mutex);
 void clearOutput(int num_lines);
-void printSchedulerStatistics(std::vector<Process*>& processes, uint32_t start);
+void printSchedulerStatistics(std::vector<Process*>& processes, uint32_t start, SchedulerData *data);
 uint32_t currentTime();
 std::string processStateToString(Process::State state);
 
@@ -53,6 +56,11 @@ int main(int argc, char **argv)
     shared_data->context_switch = config->context_switch;
     shared_data->time_slice = config->time_slice;
     shared_data->all_terminated = false;
+
+    shared_data->finished_processes = 0;
+    shared_data->num_processes = config->num_processes;
+    shared_data->half_time = 0;
+
     // create processes
     uint32_t start = currentTime();
     for (i = 0; i < config->num_processes; i++)
@@ -85,7 +93,7 @@ int main(int argc, char **argv)
 	{
 	  std::lock_guard<std::mutex> lock(shared_data->mutex);
 	  done = true;
-	  
+
 	  for(i = 0 ; i < processes.size(); i++){
 	    //Check the burst counter and update processes
 	    uint16_t burst_counter = processes[i]->getCurrentBurst();
@@ -93,6 +101,8 @@ int main(int argc, char **argv)
 
 	    //Do things if the process isn't terminated
 	    if(processes[i]->getState() != Process::State::Terminated){
+
+
 	      // start new processes at their appropriate start time
 	      //@@Check through the NotStarted Processes
 	      //@@See if time	      
@@ -114,7 +124,7 @@ int main(int argc, char **argv)
 	      // determine if all processes are in the terminated state
 	      done = false;//There was a process that is not terminated
 	      
-	    }//if not terminated
+	    }
 	  }//for each process
 	  shared_data->all_terminated = done;
 	  
@@ -152,7 +162,7 @@ int main(int argc, char **argv)
     //     - Overall average
     //  - Average turnaround time
     //  - Average waiting time
-    printSchedulerStatistics(processes, start);
+    printSchedulerStatistics(processes, start, shared_data);
 
 
     // Clean up before quitting program
@@ -255,6 +265,10 @@ void coreRunProcesses(uint8_t core_id, SchedulerData *shared_data)
 	if(runningProcess->getCurrentBurst() >= runningProcess->getNumBursts()){
 	    // if no more bursts then terminate
 	  runningProcess->setState(Process::State::Terminated, currentTime());
+      shared_data->finished_processes += 1;
+      if(shared_data->finished_processes == shared_data->num_processes/2){
+          shared_data->half_time = currentTime();
+      }
 	}
 	//Finished CPU Burst
 	//*
@@ -317,10 +331,12 @@ void clearOutput(int num_lines)
     fflush(stdout);
 }
 
-void printSchedulerStatistics(std::vector<Process*>& processes, uint32_t start)
+void printSchedulerStatistics(std::vector<Process*>& processes, uint32_t start, SchedulerData *shared_data)
 {
 	uint32_t end = currentTime();
     uint32_t total_time = end - start;
+    uint32_t first_half = shared_data->half_time - start;
+    uint32_t second_half = end - shared_data->half_time;
 	double total_turn_time = 0;
 	double total_wait_time = 0;
 	double total_cpu_time = 0;
@@ -332,15 +348,13 @@ void printSchedulerStatistics(std::vector<Process*>& processes, uint32_t start)
         total_cpu_time += processes[i]->getCpuTime();
 	}
     printf("\nScheduler Statistics: \n");
-    printf("(test) Total time: %f \n", total_time/1000.0);
-    printf("(test) Total turn time: %f \n", total_turn_time);
-    printf("CPU utilization: %f%% \n", (total_cpu_time/total_turn_time)*100);
+    printf("CPU utilization: %f%% \n", (total_cpu_time/total_time)*100.0);
     printf("Throughput:\n");
     // Throughput is the number of processes executed by the CPU in a given amount of time
-    printf("\tAverage for first 50%% of processes finished: \n");
-    printf("\tAverage for second 50%% of processes finished: \n");
-    // total time / # processes
-    printf("\tOverall average: %f seconds\n", (total_time/1000.0)/processes.size());
+    // processes/2  /  how long did first half take in seconds
+    printf("\tAverage for first 50%% of processes finished: %f\n", (processes.size()/2.0) / (first_half/1000.0)); // (processes.size()/2) / (first_half/1000)
+    printf("\tAverage for second 50%% of processes finished: %f\n", (processes.size()/2.0) / (second_half/1000.0));
+    printf("\tOverall average: %f\n", processes.size() / (total_time/1000.0)); // (total_time/1000.0)/processes.size())
     printf("Average turnaround time: %f seconds\n", total_turn_time/processes.size());
     printf("Average waiting time: %f seconds\n", total_wait_time/processes.size());
 }
