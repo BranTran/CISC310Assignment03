@@ -352,9 +352,9 @@ void printSchedulerStatistics(std::vector<Process*>& processes, uint32_t start, 
     printf("Throughput:\n");
     // Throughput is the number of processes executed by the CPU in a given amount of time
     // processes/2  /  how long did first half take in seconds
-    printf("\tAverage for first 50%% of processes finished: %f\n", (processes.size()/2.0) / (first_half/1000.0)); // (processes.size()/2) / (first_half/1000)
-    printf("\tAverage for second 50%% of processes finished: %f\n", (processes.size()/2.0) / (second_half/1000.0));
-    printf("\tOverall average: %f\n", processes.size() / (total_time/1000.0)); // (total_time/1000.0)/processes.size())
+    printf("\tAverage for first 50%% of processes finished: %f processes per second\n", (processes.size()/2.0) / (first_half/1000.0)); // (processes.size()/2) / (first_half/1000)
+    printf("\tAverage for second 50%% of processes finished: %f processes per second\n", (processes.size()/2.0) / (second_half/1000.0));
+    printf("\tOverall average: %f processes per second\n", processes.size() / (total_time/1000.0)); // (total_time/1000.0)/processes.size())
     printf("Average turnaround time: %f seconds\n", total_turn_time/processes.size());
     printf("Average waiting time: %f seconds\n", total_wait_time/processes.size());
 }
